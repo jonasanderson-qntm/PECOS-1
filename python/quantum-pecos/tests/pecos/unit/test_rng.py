@@ -180,6 +180,20 @@ def test_negative_seed_matches_twos_complement_unsigned_seed() -> None:
     assert negative_draws == PCG32_DRAWS_SEED_U64_MAX
 
 
+def test_set_seed_negative_one_matches_twos_complement_unsigned_seed() -> None:
+    """Verifies set_seed(-1) maps to the same stream as the unsigned u64 max seed."""
+    rng_negative = RNGModel(shot_id=0)
+    rng_negative.set_seed(-1)
+
+    rng_unsigned = RNGModel(shot_id=0)
+    rng_unsigned.set_seed(2**64 - 1)
+
+    negative_draws = [rng_negative.rng_random() for _ in range(3)]
+    unsigned_draws = [rng_unsigned.rng_random() for _ in range(3)]
+    assert negative_draws == unsigned_draws
+    assert negative_draws == PCG32_DRAWS_SEED_U64_MAX
+
+
 def test_seed_accepts_full_64_bit_range() -> None:
     """Verifies seeds at the signed and unsigned 64-bit extremes map to the reference stream."""
     for seed, expected_draws in [
