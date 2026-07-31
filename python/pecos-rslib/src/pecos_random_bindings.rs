@@ -63,7 +63,7 @@ fn normalize_seed(seq: i128) -> PyResult<u64> {
             pyo3::exceptions::PyOverflowError::new_err("srandom seed out of 64-bit range")
         })
     } else {
-        i64::try_from(seq).map(|signed| signed as u64).map_err(|_| {
+        i64::try_from(seq).map(i64::cast_unsigned).map_err(|_| {
             pyo3::exceptions::PyOverflowError::new_err("srandom seed out of 64-bit range")
         })
     }
@@ -106,6 +106,23 @@ mod tests {
         pcg.srandom(i128::from(u64::MAX))
             .expect("u64::MAX should be accepted");
         let _ = pcg.random();
+    }
+
+    #[test]
+    fn test_srandom_negative_one_matches_u64_max_stream() {
+        let mut negative_seed = RngPcg::new();
+        negative_seed
+            .srandom(-1)
+            .expect("-1 should map to two's-complement u64::MAX");
+
+        let mut max_seed = RngPcg::new();
+        max_seed
+            .srandom(i128::from(u64::MAX))
+            .expect("u64::MAX should be accepted");
+
+        let draws_negative: Vec<u32> = (0..3).map(|_| negative_seed.random()).collect();
+        let draws_max: Vec<u32> = (0..3).map(|_| max_seed.random()).collect();
+        assert_eq!(draws_negative, draws_max);
     }
 
     #[test]
