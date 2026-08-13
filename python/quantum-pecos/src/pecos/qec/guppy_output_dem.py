@@ -21,6 +21,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from pecos.qec._idle_noise import _translate_structured_idle_noise
+
 
 def _bit(value: Any, *, context: str) -> int:
     if isinstance(value, bool):
@@ -240,9 +242,107 @@ class InferredGuppyDemAnnotations:
 
     def build_dem(self, **noise: Any) -> Any:
         """Build a PECOS DEM from the annotated trace, without Stim."""
-        from pecos.qec.dem import DetectorErrorModel  # noqa: PLC0415
+        from pecos.qec.dem import DetectorErrorModel, _apply_traced_idle_passes  # noqa: PLC0415
 
-        return DetectorErrorModel.from_circuit(self.circuit, **noise)
+        circuit = self.circuit.copy() if hasattr(self.circuit, "copy") else self.circuit
+
+        idle_after_2q_duration = noise.pop("idle_after_2q_duration", None)
+        strip_traced_idles = noise.pop("strip_traced_idles", None)
+
+        p_idle_linear = noise.pop("p_idle_linear", None)
+        p_idle_linear_model = noise.pop("p_idle_linear_model", None)
+        p_idle_sin_squared = noise.pop("p_idle_sin_squared", None)
+        p_idle_sin_squared_model = noise.pop("p_idle_sin_squared_model", None)
+        p_idle_coherent = noise.pop("p_idle_coherent", None)
+        p_idle_coherent_model = noise.pop("p_idle_coherent_model", None)
+        p_idle_linear_rate = noise.pop("p_idle_linear_rate", None)
+        p_idle_quadratic_rate = noise.pop("p_idle_quadratic_rate", None)
+        p_idle_x_linear_rate = noise.pop("p_idle_x_linear_rate", None)
+        p_idle_y_linear_rate = noise.pop("p_idle_y_linear_rate", None)
+        p_idle_z_linear_rate = noise.pop("p_idle_z_linear_rate", None)
+        p_idle_quadratic_sine_rate = noise.pop("p_idle_quadratic_sine_rate", None)
+        p_idle_x_quadratic_sine_rate = noise.pop("p_idle_x_quadratic_sine_rate", None)
+        p_idle_y_quadratic_sine_rate = noise.pop("p_idle_y_quadratic_sine_rate", None)
+        p_idle_z_quadratic_sine_rate = noise.pop("p_idle_z_quadratic_sine_rate", None)
+        t1 = noise.get("t1")
+        t2 = noise.get("t2")
+
+        if any(
+            value is not None
+            for value in (
+                p_idle_linear,
+                p_idle_linear_model,
+                p_idle_sin_squared,
+                p_idle_sin_squared_model,
+                p_idle_coherent,
+                p_idle_coherent_model,
+                p_idle_linear_rate,
+                p_idle_quadratic_rate,
+                p_idle_x_linear_rate,
+                p_idle_y_linear_rate,
+                p_idle_z_linear_rate,
+                p_idle_quadratic_sine_rate,
+                p_idle_x_quadratic_sine_rate,
+                p_idle_y_quadratic_sine_rate,
+                p_idle_z_quadratic_sine_rate,
+                t1,
+                t2,
+            )
+        ):
+            _apply_traced_idle_passes(
+                circuit,
+                strip_traced_idles=strip_traced_idles,
+                idle_after_2q_duration=idle_after_2q_duration,
+                idle_noise_parameters=(
+                    p_idle_linear,
+                    p_idle_sin_squared,
+                    t1,
+                    t2,
+                    p_idle_linear_rate,
+                    p_idle_quadratic_rate,
+                    p_idle_x_linear_rate,
+                    p_idle_y_linear_rate,
+                    p_idle_z_linear_rate,
+                    p_idle_quadratic_sine_rate,
+                    p_idle_x_quadratic_sine_rate,
+                    p_idle_y_quadratic_sine_rate,
+                    p_idle_z_quadratic_sine_rate,
+                ),
+            )
+
+        (
+            p_idle_x_linear_rate,
+            p_idle_y_linear_rate,
+            p_idle_z_linear_rate,
+            p_idle_x_quadratic_sine_rate,
+            p_idle_y_quadratic_sine_rate,
+            p_idle_z_quadratic_sine_rate,
+        ) = _translate_structured_idle_noise(
+            p_idle_linear=p_idle_linear,
+            p_idle_linear_model=p_idle_linear_model,
+            p_idle_sin_squared=p_idle_sin_squared,
+            p_idle_sin_squared_model=p_idle_sin_squared_model,
+            p_idle_coherent=p_idle_coherent,
+            p_idle_coherent_model=p_idle_coherent_model,
+            p_idle_linear_rate=p_idle_linear_rate,
+            p_idle_quadratic_rate=p_idle_quadratic_rate,
+            p_idle_x_linear_rate=p_idle_x_linear_rate,
+            p_idle_y_linear_rate=p_idle_y_linear_rate,
+            p_idle_z_linear_rate=p_idle_z_linear_rate,
+            p_idle_quadratic_sine_rate=p_idle_quadratic_sine_rate,
+            p_idle_x_quadratic_sine_rate=p_idle_x_quadratic_sine_rate,
+            p_idle_y_quadratic_sine_rate=p_idle_y_quadratic_sine_rate,
+            p_idle_z_quadratic_sine_rate=p_idle_z_quadratic_sine_rate,
+        )
+
+        noise["p_idle_x_linear_rate"] = p_idle_x_linear_rate
+        noise["p_idle_y_linear_rate"] = p_idle_y_linear_rate
+        noise["p_idle_z_linear_rate"] = p_idle_z_linear_rate
+        noise["p_idle_x_quadratic_sine_rate"] = p_idle_x_quadratic_sine_rate
+        noise["p_idle_y_quadratic_sine_rate"] = p_idle_y_quadratic_sine_rate
+        noise["p_idle_z_quadratic_sine_rate"] = p_idle_z_quadratic_sine_rate
+
+        return DetectorErrorModel.from_circuit(circuit, **noise)
 
 
 def infer_guppy_dem_annotations(

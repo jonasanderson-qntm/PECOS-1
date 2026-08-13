@@ -10,7 +10,7 @@ import json
 import pytest
 from guppylang import guppy
 from guppylang.std.builtins import array, result
-from guppylang.std.quantum import measure, qubit
+from guppylang.std.quantum import cx, measure, qubit
 from pecos.qec import infer_guppy_dem_annotations
 
 
@@ -43,6 +43,18 @@ def _raw_results_incomplete() -> None:
     m1 = measure(q1)
     result("DETECTOR", m0 ^ m1)
     result("obs", m0)
+
+
+@guppy
+def _two_qubit_idle_target() -> None:
+    q0 = qubit()
+    q1 = qubit()
+    cx(q0, q1)
+    b0 = measure(q0)
+    b1 = measure(q1)
+    result("raw measurements", array(b0, b1))
+    result("DETECTOR", b0 ^ b1)
+    result("obs", b0)
 
 
 @guppy
@@ -120,3 +132,45 @@ def test_raw_tag_must_cover_canonical_qis_measurement_order() -> None:
             validation_rows=8,
             seed=3,
         )
+
+
+def test_inferred_build_dem_accepts_structured_idle_noise() -> None:
+    inferred = infer_guppy_dem_annotations(
+        _two_qubit_idle_target,
+        num_qubits=2,
+        probe_shots=64,
+        validation_rows=16,
+        seed=5,
+    )
+
+    linear_dem = inferred.build_dem(
+        p1=0.0,
+        p2=0.0,
+        p_meas=0.0,
+        p_prep=0.0,
+        p_idle_linear=0.02,
+        p_idle_linear_model={"Z": 1.0},
+        idle_after_2q_duration=1.0,
+    )
+    flat_linear_dem = inferred.build_dem(
+        p1=0.0,
+        p2=0.0,
+        p_meas=0.0,
+        p_prep=0.0,
+        p_idle_z_linear_rate=0.02,
+        idle_after_2q_duration=1.0,
+    )
+
+    assert linear_dem.to_string() == flat_linear_dem.to_string()
+    assert linear_dem.num_detectors == 1
+
+    sine_dem = inferred.build_dem(
+        p1=0.0,
+        p2=0.0,
+        p_meas=0.0,
+        p_prep=0.0,
+        p_idle_sin_squared=0.03,
+        p_idle_sin_squared_model={"Z": 1.0},
+        idle_after_2q_duration=1.0,
+    )
+    assert "error(" in sine_dem.to_string()
