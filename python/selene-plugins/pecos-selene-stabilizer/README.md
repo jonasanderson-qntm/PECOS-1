@@ -46,7 +46,7 @@ This package requires Rust to build. The Rust components will be automatically c
 
 ```bash
 # From the PECOS repository root
-cd python/pecos-selene-stabilizer
+cd python/selene-plugins/pecos-selene-stabilizer
 pip install -e ".[test]"
 ```
 
